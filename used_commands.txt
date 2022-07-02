@@ -1,0 +1,126 @@
+django-admin startproject smartnotes . //create server
+python manage.py runserver //start server
+django-admin startapp home
+
+//other stuff
+Django uses the MVT framework
+best use modularized apps, whic you add to the main settings.py file
+to create an app, run django-admin startapp nameoftheapp
+within the app create a urls.py file where you store all the paths and the functions
+Store the templates, or the thml files in a directory called 'templates'
+the urls of the path should be also store in the main app, which acts as a dispatcher
+to assure modularity, use 'include' library - this allows you to remove an entire app without breaking hardcoded dependencies
+
+django has a built-in administration panel availanble at /admin
+In order to use tit, you need to use 'migrate' and apply it to the 'migrations'
+migrations represent changes to be deplayed to the database
+python manage.py migrate //command
+
+after the migrations are applied, create the super user
+python manage.py createsuperuser //enter credentials afterwards --admin/admin is fine, but change afterwards
+
+in order to add login functionalities within the website, the from django.contrib.auth.decorators import login_required library is used.
+--just add @login_required as a wrapper on top of the views that are protected
+to redirect unlogged users, use  @login_required(login_url='/admin')
+
+
+DATABASES AND ORMs
+each model class is a datatable
+each added attribute of the class is turned into a column
+//Workflow (ORM workflow)
+Define the model class instance -> make migrations -> apply migrations -> database
+-- to make migrations, use python manage.py makemigrations 
+--then use python manage.py migrate
+--a database is greated in the root folder
+
+subsequently, to view the model/table from the admin panel, add the classes to the admin.py of the app (inheriting from admin.ModelAdmin)
+then, also in admin.py, use admin.site.register to link the model class to the admin class
+
+Django shell is used for querying and writing data into the database - python manage.py shell
+e.g the use -- from notes.models import Notes -- and then --mynote = Notes.objects.get(pk='1')-- to get the first notes object
+.all queries all objects, instead of .get
+.create creates a new object (e.g. new_note = Notes.objects.create(title = "command note",text = "command text"))
+Notes.objects.filter(title__startswith = "Some") //filtering for objects with title starting with Some 
+Notes.objects.filter(text__icontains = "random")
+Notes.objects.exclude(text__icontains = "note")//excludes all items with the specific query
+Notes.objects.filter(text__icontains = "random").exclude(text__icontains = "note")// adding additional fileters
+
+you can add prefix to the url in the main urls.py file and it will be used for the specific app
+you can pass a whole object to the view - then the template will only pick the attributes it wants to show
+
+when defining the path, /<int:pk> can be used as placeholder for the objects id
+
+In case of trying to query items which do not exist, error 404 should be displayed tothe user
+This is handled from the view function - use from django.http import Http404, and then wrap the function in a try/except block - use Notes.DoesNotExist to check if an object exists
+
+--CLASS-BASED views
+Instead of defining each view with a function, you can use the TemplateView class
+Inherit the class and use .as_view() method in the urls.py
+to account for login functionalities, add the LoginRequiredMixin class as first inheritance and pass login_url
+
+Listview is used for diplaying lists, does not require link to the html file -> links NotesListView(ListView) with notes_list.html
+However, best to pass 'template_name'
+The class views automatically handle exceptions and errors - no need for extra code
+
+Static files are added in a seperate dir in the main directoryadd the folder to a new static var STATICFILES_DIRS
+add {% load static%} to the top of the html as well as <head> section to the html file to use the static files
+
+To avoid doing all of that for all template files, make a new template in the static folder called base.html
+add  {% block content %} and  {% endcontent %} to signify where to inject thigns
+In all other templates which arei nheriting, put { % extends "base html" %} instead of {% load static%} and remove the head and body of the inheriting templates
+Instead, put {% block content %} and {% endcontent %} at the beginning and the end of the html content
+finally, update the DIRS in TEMPLATES in settings.py with BASE_DIR / 'static/templates'
+in the base.html, make any new changes - like adding a css link
+
+Button
+Add a button in the home page with css - <a href="{% url 'notes.list'%}" class = "btn btn-primary"> Check out these smart notes! </a>
+{% url 'notes.list'%} - points to the local endpoint from notes app
+for {% url 'notes.list'%} to work, add a name to the url path in urls
+
+LISTING Notes
+use {{note.text|truncatechars:10}} to show only 10 chars from an item
+
+FORMS
+use CreateView to create new items
+add {% csrf_token %} to the form field to allow the post request - generates a secure token for the specific browser/client
+instead of using an fields for the CreateView, you can make a new forms.py with a notesform from forms.ModelForm from django
+form_class = NotesForm instead of template_class
+
+Validation
+to do validation of input, use a method with self.cleaned_data in the NotesForm, whioch raises errors
+to make the error more presentable, add ul.errorlist {display:none} to the style.css and 
+
+Visuals
+Add widgets and labels to the form to imporve the layout of the form
+Update items
+To make the items upodateable/editable, make a new class NotesUpdateView(UpdateView), and populate it with the same items as the CreateView
+To delete, use the DeleteView
+Multiple functionalities can be added to the notes_detaqil view by adding buttons, which point toi specific views
+
+Authorization
+Add a foreign key, which matches the list of notes to the users which created them
+user =  models.ForeignKey(User, on_delete=models.CASCADE,related_name="notes")
+then make migrations with python manage.py makemigrations 
+Choose 1 with the default user for all existing notes -- must be existing user
+commit the migrations withg python manage.py migrate 
+after that, activate the django shell with python manage.py shell
+>>> from django.contrib.auth.models import User
+>>> user = User.objects.get(pk=1)
+>>> user
+<User: admin>
+>>> user.notes.count
+
+Then add LoginRequiredMixin to the NotesListView class and add login_url = "/admin"
+overwrite form_valid(self, form) to inject the user when creating a new note
+
+ADD login and logout pages
+for adding user login funct, use LoginInterfaceView(LoginView) in the views
+Then, you'll get an error, where django by default will route you to a non-existing profile page
+Add LOGIN_REDIRECT_URL to settings.py 
+add LogoutnterfaceView(LogoutView) for a logout interface 
+Redirect other views to use the /login as login_url page
+
+Add Signup page
+for signup pages, add SignupView(CreateView) and specify  UserCreationForm as a form_class
+With this, the app will allow already logged in users to create new users - no go
+To avoid that, just overwrite the get function of the view and check if the user is authenticated. Redirect if they are
